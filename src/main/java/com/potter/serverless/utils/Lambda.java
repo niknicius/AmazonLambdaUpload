@@ -1,5 +1,6 @@
 package com.potter.serverless.utils;
 
+import com.potter.serverless.models.LambdaFunction;
 import org.apache.tomcat.util.codec.binary.Base64;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
@@ -10,54 +11,49 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.Iterator;
 import java.util.List;
 
 public class Lambda {
 
+    private LambdaFunction lambdaFunction;
+    private LambdaClient lambdaClient;
+    private S3 s3Client;
+    private Region region;
+
+    public Lambda(Region region, LambdaFunction lambdaFunction) {
+        this.region = region;
+        this.lambdaClient = LambdaClient.builder().region(region).build();
+        this.s3Client = new S3(region);
+        this.lambdaFunction = lambdaFunction;
+    }
+
     public ListFunctionsResponse getFunctionList(){
-
-        ListFunctionsResponse functionResult = null ;
-
         try {
-            Region region = Region.US_EAST_1;
-            LambdaClient awsLambda = LambdaClient.builder().region(region).build();
-
-
-            //Get a list of all functions
-            functionResult = awsLambda.listFunctions();
-
+            ListFunctionsResponse functionResult = this.lambdaClient.listFunctions();
             List<FunctionConfiguration> list = functionResult.functions();
-
-            for (Iterator iter = list.iterator(); iter.hasNext(); ) {
-                FunctionConfiguration config = (FunctionConfiguration)iter.next();
-                System.out.println("The function name is "+config.functionName());
-            }
+            return functionResult;
         } catch(ServiceException e) {
             e.getStackTrace();
         }
 
-        return functionResult;
+        return null;
     }
 
     public String createFunction(){
-        Region region = Region.US_EAST_1;
-        LambdaClient awsLambda = LambdaClient.builder().region(region).build();
-        CreateFunctionRequest functionRequest = null;
         try {
-            functionRequest = CreateFunctionRequest.builder()
-                    .functionName("lambda_test")
-                    .code(generateFunctionCode("C:\\Users\\nikni\\OneDrive\\Área de Trabalho\\AmazonUpload\\src\\main\\resources\\zip\\express.zip"))
-                    .handler("dist/handler.handler")
+            CreateFunctionRequest functionRequest = CreateFunctionRequest.builder()
+                    .functionName(this.lambdaFunction.getName())
+                    .code(generateFunctionCode(this.lambdaFunction.getCodeLocation()))
+                    .handler(this.lambdaFunction.getHandler())
                     .publish(true)
                     .role("arn:aws:iam::122943367152:role/express-dev-us-east-1-lambdaRole")
-                    .runtime("nodejs12.x").build();
+                    .runtime(this.lambdaFunction.getRuntime()).build();
+            return this.lambdaClient.createFunction(functionRequest).toString();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
 
-        return awsLambda.createFunction(functionRequest).toString();
+        return null;
 
     }
 
@@ -68,23 +64,6 @@ public class Lambda {
         functionCode.zipFile(bytes);
         return functionCode.build();
 
-    }
-
-    private String encodeFile(String zipLocation){
-        File originalFile = new File(zipLocation);
-        String fileBase64 = null;
-        try{
-            FileInputStream fileInputStreamReader = new FileInputStream(originalFile);
-            byte[] bytes = new byte[(int)originalFile.length()];
-            fileInputStreamReader.read(bytes);
-            fileBase64 = new String(Base64.encodeBase64(bytes));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return fileBase64;
     }
 
 }

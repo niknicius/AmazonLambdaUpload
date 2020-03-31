@@ -1,25 +1,28 @@
 package com.potter.serverless.controllers;
 
-import com.potter.serverless.utils.Lambda;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
+import com.potter.serverless.models.LambdaFunction;
+import com.potter.serverless.services.FunctionService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class LambdaController {
 
+    @Autowired
+    private FunctionService functionService;
+
     @RequestMapping("functions")
     @ResponseBody
     public String getMessage() {
-       Lambda lambda = new Lambda();
-       return lambda.getFunctionList().toString();
+       /*Lambda lambda = new Lambda();
+       return lambda.getFunctionList().toString();*/
+       return null;
     }
 
     @PostMapping("functions")
-    @ResponseBody
-    public String createFunction() {
-        Lambda lambda = new Lambda();
-        return lambda.createFunction();
+        public ResponseEntity<LambdaFunction> createFunction(@RequestBody LambdaFunction payload) throws Exception {
+            return new ResponseEntity<>(this.functionService.create(payload), HttpStatus.OK);
     }
 }
