@@ -4,6 +4,7 @@ import com.potter.serverless.models.LambdaFunction;
 import com.potter.serverless.utils.Lambda;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 
 @Service
 public class FunctionService {
@@ -31,4 +32,8 @@ public class FunctionService {
         return null;
     }
 
+    public void getAll() {
+        ListFunctionsResponse a = this.lambda.getFunctionList();
+        System.out.println(a.toString());
+    }
 }

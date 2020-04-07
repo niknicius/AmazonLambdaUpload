@@ -16,8 +16,7 @@ public class LambdaController {
     @RequestMapping("functions")
     @ResponseBody
     public String getMessage() {
-       /*Lambda lambda = new Lambda();
-       return lambda.getFunctionList().toString();*/
+       this.functionService.getAll();
        return null;
     }
 
