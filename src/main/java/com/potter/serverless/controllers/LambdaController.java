@@ -21,7 +21,11 @@ public class LambdaController {
     }
 
     @PostMapping("functions")
-        public ResponseEntity<LambdaFunction> createFunction(@RequestBody LambdaFunction payload) throws Exception {
-            return new ResponseEntity<>(this.functionService.create(payload), HttpStatus.OK);
+    public ResponseEntity<String> createFunction(@RequestBody LambdaFunction payload) throws Exception {
+        long tempoInicial = System.currentTimeMillis();
+        this.functionService.create(payload);
+        long tempoFinal = System.currentTimeMillis();
+        System.out.println(tempoFinal - tempoInicial);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 }

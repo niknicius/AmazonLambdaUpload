@@ -35,7 +35,7 @@ public class CloudFormation {
         return sb.toString();
     }
 
-    public CreateStackResponse createStack(String stackName, String templateLocation) throws IOException, InterruptedException {
+    public DescribeStackResourcesResponse createStack(String stackName, String templateLocation) throws IOException, InterruptedException {
         logger.info("Stack creation started");
         CreateStackResponse response = this.cloudFormationClient.createStack(CreateStackRequest.builder()
                 .stackName(stackName)
@@ -43,12 +43,11 @@ public class CloudFormation {
                 .build());
         boolean finishedCreation = this.checkStackCreationFinished(this.getStackEvents());
         while(!finishedCreation){
-            logger.warn("Not Yet");
             Thread.sleep(1000);
             finishedCreation = this.checkStackCreationFinished(this.getStackEvents());
         }
 
-        return null;
+        return this.cloudFormationClient.describeStackResources(DescribeStackResourcesRequest.builder().stackName(stackName).build());
     }
 
     private boolean checkStackCreationFinished(DescribeStackEventsResponse response){
@@ -64,6 +63,14 @@ public class CloudFormation {
 
     private DescribeStackEventsResponse getStackEvents(){
         return this.cloudFormationClient.describeStackEvents(DescribeStackEventsRequest.builder().stackName(this.lambdaFunction.getName().replace("_", "")).build());
+    }
+
+    public UpdateStackResponse updateStack(String stackName, String templateLocation) throws IOException {
+        return this.cloudFormationClient.updateStack(UpdateStackRequest.builder()
+                .stackName(stackName)
+                .templateBody(this.getJson(templateLocation))
+                .capabilities(Capability.CAPABILITY_NAMED_IAM)
+                .build());
     }
 
 }

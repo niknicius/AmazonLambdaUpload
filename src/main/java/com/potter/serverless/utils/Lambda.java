@@ -5,6 +5,8 @@ import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.apigatewayv2.model.CreateApiResponse;
 import software.amazon.awssdk.services.apigatewayv2.model.CreateIntegrationResponse;
+import software.amazon.awssdk.services.cloudformation.model.DescribeStackResourcesResponse;
+import software.amazon.awssdk.services.cloudformation.model.StackResource;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.*;
 
@@ -52,9 +54,16 @@ public class Lambda {
         CreateFunctionResponse createFunctionResponse = this.lambdaClient.createFunction(functionRequest);
         CreateApiResponse createApiResponse = this.apiGatewayClient.createApi(createFunctionResponse.functionArn());
         CreateIntegrationResponse createIntegrationResponse = this.apiGatewayClient.createIntegration(createApiResponse.apiId(), createFunctionResponse.functionArn());
-        return createIntegrationResponse.toString();*/
+        */
         CloudFormation cloudFormation = new CloudFormation(this.region, this.lambdaFunction);
-        return cloudFormation.createStack(this.lambdaFunction.getName().replace("_", ""),"C:\\Users\\nikni\\OneDrive\\Área de Trabalho\\AmazonUpload\\src\\main\\resources\\create.json").toString();
+        DescribeStackResourcesResponse a = cloudFormation.createStack(this.lambdaFunction.getName().replace("_", ""), "C:\\Users\\nikni\\OneDrive\\Área de Trabalho\\AmazonUpload\\src\\main\\resources\\create.json");
+        for(StackResource stackResource: a.stackResources()){
+           if(stackResource.logicalResourceId().equalsIgnoreCase("ServerlessDeploymentBucket")){
+               this.s3Client.uploadObjectToAExistentBucket(stackResource.physicalResourceId(), this.lambdaFunction.getCodeLocation(), "code.zip");
+           }
+       }
+        cloudFormation.updateStack(this.lambdaFunction.getName().replace("_", ""), "C:\\Users\\nikni\\OneDrive\\Área de Trabalho\\AmazonUpload\\src\\main\\resources\\update.json");
+        return cloudFormation.toString();
     }
 
     private FunctionCode generateFunctionCode() throws FileNotFoundException {
