@@ -4,7 +4,7 @@ import com.potter.serverless.models.LambdaFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.cloudformation.CloudFormationClient;;
+import software.amazon.awssdk.services.cloudformation.CloudFormationClient;
 import software.amazon.awssdk.services.cloudformation.model.*;
 
 import java.io.*;
@@ -23,23 +23,12 @@ public class CloudFormation {
         this.logger = LoggerFactory.getLogger(CloudFormation.class);
     }
 
-    private String getJson(String path) throws IOException {
-        InputStream is = new FileInputStream(path);
-        BufferedReader buf = new BufferedReader(new InputStreamReader(is));
 
-        String line = buf.readLine();
-        StringBuilder sb = new StringBuilder();
-
-        while(line != null){ sb.append(line).append("\n"); line = buf.readLine(); }
-
-        return sb.toString();
-    }
-
-    public DescribeStackResourcesResponse createStack(String stackName, String templateLocation) throws IOException, InterruptedException {
+    public DescribeStackResourcesResponse createStack(String stackName, String json) throws InterruptedException {
         logger.info("Stack creation started");
         CreateStackResponse response = this.cloudFormationClient.createStack(CreateStackRequest.builder()
                 .stackName(stackName)
-                .templateBody(getJson(templateLocation))
+                .templateBody(json)
                 .build());
         boolean finishedCreation = this.checkStackCreationFinished(this.getStackEvents());
         while(!finishedCreation){
@@ -53,7 +42,7 @@ public class CloudFormation {
     private boolean checkStackCreationFinished(DescribeStackEventsResponse response){
        boolean finished = false;
         for(StackEvent stackEvent: response.stackEvents()){
-            if(stackEvent.logicalResourceId().equalsIgnoreCase(this.lambdaFunction.getName().replace("_", "")) && stackEvent.resourceStatus().equals(ResourceStatus.CREATE_COMPLETE)){
+            if(stackEvent.logicalResourceId().equalsIgnoreCase(StrUtils.snakeToPascal(this.lambdaFunction.getName())) && stackEvent.resourceStatus().equals(ResourceStatus.CREATE_COMPLETE)){
                 logger.info("Stack creation finished");
                 finished = true;
             }
@@ -65,10 +54,10 @@ public class CloudFormation {
         return this.cloudFormationClient.describeStackEvents(DescribeStackEventsRequest.builder().stackName(this.lambdaFunction.getName().replace("_", "")).build());
     }
 
-    public UpdateStackResponse updateStack(String stackName, String templateLocation) throws IOException {
+    public UpdateStackResponse updateStack(String stackName, String json) {
         return this.cloudFormationClient.updateStack(UpdateStackRequest.builder()
                 .stackName(stackName)
-                .templateBody(this.getJson(templateLocation))
+                .templateBody(json)
                 .capabilities(Capability.CAPABILITY_NAMED_IAM)
                 .build());
     }

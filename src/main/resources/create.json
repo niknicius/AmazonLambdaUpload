@@ -1,8 +1,8 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "The AWS CloudFormation template for this Serverless application",
-  "Resources": {
-    "ServerlessDeploymentBucket": {
+    "Resources": {
+    "{{function_name}}DeploymentBucket": {
       "Type": "AWS::S3::Bucket",
       "Properties": {
         "BucketEncryption": {
@@ -16,11 +16,11 @@
         }
       }
     },
-    "ServerlessDeploymentBucketPolicy": {
+    "{{function_name}}DeploymentBucketPolicy": {
       "Type": "AWS::S3::BucketPolicy",
       "Properties": {
         "Bucket": {
-          "Ref": "ServerlessDeploymentBucket"
+          "Ref": "{{function_name}}DeploymentBucket"
         },
         "PolicyDocument": {
           "Statement": [
@@ -39,7 +39,7 @@
                       },
                       ":s3:::",
                       {
-                        "Ref": "ServerlessDeploymentBucket"
+                        "Ref": "{{function_name}}DeploymentBucket"
                       },
                       "/*"
                     ]
@@ -58,9 +58,9 @@
     }
   },
   "Outputs": {
-    "ServerlessDeploymentBucketName": {
+    "{{function_name}}DeploymentBucketName": {
       "Value": {
-        "Ref": "ServerlessDeploymentBucket"
+        "Ref": "{{function_name}}DeploymentBucket"
       }
     }
   }

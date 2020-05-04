@@ -20,14 +20,12 @@ public class Lambda {
     private LambdaFunction lambdaFunction;
     private LambdaClient lambdaClient;
     private S3 s3Client;
-    private ApiGateway apiGatewayClient;
     private Region region;
 
     public Lambda(Region region, LambdaFunction lambdaFunction) {
         this.region = region;
         this.lambdaClient = LambdaClient.builder().region(region).build();
         this.s3Client = new S3(region);
-        this.apiGatewayClient = new ApiGateway(region, lambdaFunction);
         this.lambdaFunction = lambdaFunction;
     }
 
@@ -44,17 +42,6 @@ public class Lambda {
     }
 
     public String createFunction() throws IOException, InterruptedException {
-        /*CreateFunctionRequest functionRequest = CreateFunctionRequest.builder()
-                .functionName(this.lambdaFunction.getName())
-                .code(generateFunctionCode())
-                .handler(this.lambdaFunction.getHandler())
-                .publish(true)
-                .role("arn:aws:iam::122943367152:role/express-dev-us-east-1-lambdaRole")
-                .runtime(this.lambdaFunction.getRuntime()).build();
-        CreateFunctionResponse createFunctionResponse = this.lambdaClient.createFunction(functionRequest);
-        CreateApiResponse createApiResponse = this.apiGatewayClient.createApi(createFunctionResponse.functionArn());
-        CreateIntegrationResponse createIntegrationResponse = this.apiGatewayClient.createIntegration(createApiResponse.apiId(), createFunctionResponse.functionArn());
-        */
         CloudFormation cloudFormation = new CloudFormation(this.region, this.lambdaFunction);
         DescribeStackResourcesResponse a = cloudFormation.createStack(this.lambdaFunction.getName().replace("_", ""), "C:\\Users\\nikni\\OneDrive\\Área de Trabalho\\AmazonUpload\\src\\main\\resources\\create.json");
         for(StackResource stackResource: a.stackResources()){
@@ -72,7 +59,6 @@ public class Lambda {
         SdkBytes bytes = SdkBytes.fromInputStream(fileInputStream);
         functionCode.zipFile(bytes);
         return functionCode.build();
-
     }
 
 }

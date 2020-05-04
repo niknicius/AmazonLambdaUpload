@@ -275,7 +275,7 @@
         "FunctionName": {
           "Ref": "GetUsersLambdaFunction"
         },
-        "CodeSha256": "cH2rXdN8p5yCOoNpu8MC+Rr33mBqymjZhH33wgDE4cs="
+        "CodeSha256": "hcrngu4mvHT8qOK/BLm+m5bYPiV59C3QQzr1RZ+0ZpU="
       },
       "Metadata": {
         "AWS::CloudFormation::Designer": {
