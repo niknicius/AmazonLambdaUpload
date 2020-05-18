@@ -1,11 +1,14 @@
 package com.potter.serverless.tasks;
 
 import com.potter.serverless.models.LambdaFunction;
+import com.potter.serverless.services.DeployStatusService;
 import com.potter.serverless.utils.CloudFormation;
 import com.potter.serverless.utils.StrUtils;
 import com.potter.serverless.utils.backgroundtask.Task;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudformation.model.CreateStackResponse;
 import software.amazon.awssdk.services.cloudformation.model.ResourceStatus;
@@ -21,35 +24,46 @@ public class CreateBucketS3 implements Task {
     private final CloudFormation cloudFormation;
     private final LambdaFunction lambdaFunction;
 
-    public CreateBucketS3(LambdaFunction lambdaFunction) {
+    private DeployStatusService deployStatusService;
+
+    public CreateBucketS3(LambdaFunction lambdaFunction, DeployStatusService deployStatusService) {
         this.lambdaFunction = lambdaFunction;
         this.cloudFormation = new CloudFormation(Region.of(lambdaFunction.getRegion()), lambdaFunction);
+        this.deployStatusService = deployStatusService;
     }
 
     @Async
     @Override
     public void run(){
         try {
+            this.deployStatusService.putStatus(1, "Bucket creation request started");
             String json = new String(Files.readAllBytes(new ClassPathResource("create.json").getFile().toPath()));
             json = json.replace("{{function_name}}", StrUtils.snakeToPascal(lambdaFunction.getName()));
             CompletableFuture<CreateStackResponse> response = cloudFormation.createStack(StrUtils.snakeToPascal(lambdaFunction.getName()), json);
             response.whenComplete((createStackResponse, throwable) -> {
                 if (throwable != null) {
-                    System.err.println(throwable.getMessage());
+                    this.deployStatusService.putStatus(1, throwable.getMessage());
                 } else {
-                    CompletableFuture<Boolean> a = null;
+                    this.deployStatusService.putStatus(1, "Bucket creation request made");
+                    CompletableFuture<Boolean> statusBucket = null;
                     try {
-                        a = checkBucketIsCreated();
+                        statusBucket = checkBucketIsCreated();
+                        statusBucket.whenComplete ((created, throwable1) -> {
+                            if(throwable1 != null){
+                                this.deployStatusService.putStatus(1, throwable1.getMessage());
+                            }else {
+                                this.deployStatusService.putStatus(1, "Bucket creation completed");
+                            }
+                        });
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        this.deployStatusService.putStatus(1, e.getMessage());
                     }
-                    a.whenComplete((created, throwable1) -> {
-                        System.out.println("Created");
-                    });
+
                 }
             });
         }catch (Exception ex){
-            System.err.println(ex.getMessage());;
+            this.deployStatusService.putStatus(1, ex.getMessage());
+            System.out.println(ex.getMessage());
         }
 
     }
@@ -61,12 +75,16 @@ public class CreateBucketS3 implements Task {
         while(!created.get()){
             CompletableFuture<List<StackEvent>> a = getStackEvents();
             a.whenComplete((stackEvents, throwable) -> {
-                for(StackEvent event: stackEvents){
-                    if(event.logicalResourceId().equalsIgnoreCase(StrUtils.snakeToPascal(lambdaFunction.getName()))
-                            && event.resourceStatus().equals(ResourceStatus.CREATE_COMPLETE)){
-                        created.set(true);
-                        response.complete(true);
-                        break;
+                if(throwable != null){
+                    this.deployStatusService.putStatus(1, throwable.getMessage());
+                }else {
+                    for (StackEvent event : stackEvents) {
+                        if (event.logicalResourceId().equalsIgnoreCase(StrUtils.snakeToPascal(lambdaFunction.getName()))
+                                && event.resourceStatus().equals(ResourceStatus.CREATE_COMPLETE)) {
+                            created.set(true);
+                            response.complete(true);
+                            break;
+                        }
                     }
                 }
             });

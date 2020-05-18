@@ -21,4 +21,9 @@ public class LambdaController {
         System.out.println(tempoFinal - tempoInicial);
         return new ResponseEntity<>(HttpStatus.OK);
     }
+
+    @GetMapping("functions/{id}")
+    public ResponseEntity<String> checkStatus(@PathVariable Integer id){
+        return new ResponseEntity<String>(this.functionService.getStatus(id), HttpStatus.OK);
+    }
 }

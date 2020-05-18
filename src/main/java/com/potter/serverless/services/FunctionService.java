@@ -15,11 +15,14 @@ public class FunctionService {
     private TaskService taskService;
 
     @Autowired
+    private DeployStatusService deployStatusService;
+
+    @Autowired
     ResourceLoader resourceLoader;
     
     public LambdaFunction create(LambdaFunction lambdaFunction) {
 
-        CreateBucketS3 task = new CreateBucketS3(lambdaFunction);
+        CreateBucketS3 task = new CreateBucketS3(lambdaFunction, this.deployStatusService);
         taskService.addTask(task);
         taskService.run();
         /*if(lambdaFunction.getRegion() != null){
@@ -40,6 +43,10 @@ public class FunctionService {
             }
         }
         return null;
+    }
+
+    public String getStatus(Integer id){
+        return this.deployStatusService.getStatus(id);
     }
 
 }
