@@ -19,11 +19,7 @@ public class TaskRunner extends Thread {
     @Override
     public void run(){
         for(Task task: this.taskList) {
-            try {
-                task.run();
-            } catch (InterruptedException | IOException e) {
-                e.printStackTrace();
-            }
+            task.run();
         }
     }
 

@@ -12,14 +12,7 @@ public class LambdaController {
 
     @Autowired
     private FunctionService functionService;
-
-    @RequestMapping("functions")
-    @ResponseBody
-    public String getMessage() {
-       this.functionService.getAll();
-       return null;
-    }
-
+    
     @PostMapping("functions")
     public ResponseEntity<String> createFunction(@RequestBody LambdaFunction payload) throws Exception {
         long tempoInicial = System.currentTimeMillis();

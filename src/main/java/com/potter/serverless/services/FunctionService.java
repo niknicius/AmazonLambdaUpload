@@ -2,17 +2,11 @@ package com.potter.serverless.services;
 
 import com.potter.serverless.models.LambdaFunction;
 import com.potter.serverless.tasks.CreateBucketS3;
-import com.potter.serverless.utils.Lambda;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 
-import java.io.File;
-import java.io.InputStream;
-import java.nio.file.Files;
 
 @Service
 public class FunctionService {
@@ -22,8 +16,6 @@ public class FunctionService {
 
     @Autowired
     ResourceLoader resourceLoader;
-
-    private Lambda lambda;
     
     public LambdaFunction create(LambdaFunction lambdaFunction) {
 
@@ -50,8 +42,4 @@ public class FunctionService {
         return null;
     }
 
-    public void getAll() {
-        ListFunctionsResponse a = this.lambda.getFunctionList();
-        System.out.println(a.toString());
-    }
 }

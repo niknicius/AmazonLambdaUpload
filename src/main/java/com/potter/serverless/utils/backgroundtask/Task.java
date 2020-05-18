@@ -4,6 +4,6 @@ import java.io.IOException;
 
 public interface Task {
 
-    Object run() throws InterruptedException, IOException;
+    void run();
 
 }
