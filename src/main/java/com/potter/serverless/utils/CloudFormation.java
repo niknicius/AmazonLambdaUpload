@@ -55,4 +55,10 @@ public class CloudFormation {
                 .build());
     }
 
+    public CompletableFuture<DeleteStackResponse> deleteStack(String stackName){
+        return this.cloudFormationClient.deleteStack(DeleteStackRequest.builder()
+                .stackName(stackName)
+                .build());
+    }
+
 }

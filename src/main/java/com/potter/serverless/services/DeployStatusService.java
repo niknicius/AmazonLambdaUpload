@@ -10,9 +10,11 @@ public class
 DeployStatusService {
 
     private Map<Integer, String> status;
+    private Integer lastId;
 
     public DeployStatusService() {
         this.status = new HashMap<>();
+        this.lastId = 0;
     }
 
     public void putStatus(Integer id, String status){
@@ -29,5 +31,9 @@ DeployStatusService {
 
     public String getStatus(Integer id){
         return this.status.get(id);
+    }
+
+    public Integer getLastId(){
+        return ++lastId;
     }
 }

@@ -1,5 +1,7 @@
 package com.potter.serverless.controllers;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.potter.serverless.models.LambdaFunction;
 import com.potter.serverless.services.FunctionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,15 +17,12 @@ public class LambdaController {
     
     @PostMapping("functions")
     public ResponseEntity<String> createFunction(@RequestBody LambdaFunction payload) throws Exception {
-        long tempoInicial = System.currentTimeMillis();
-        this.functionService.create(payload);
-        long tempoFinal = System.currentTimeMillis();
-        System.out.println(tempoFinal - tempoInicial);
-        return new ResponseEntity<>(HttpStatus.OK);
+        Integer id = this.functionService.create(payload);
+        return new ResponseEntity<>("{\"status\": \"Lambda function upload successfully requested\", \"id\": " + id + "}", HttpStatus.OK);
     }
 
     @GetMapping("functions/{id}")
     public ResponseEntity<String> checkStatus(@PathVariable Integer id){
-        return new ResponseEntity<String>(this.functionService.getStatus(id), HttpStatus.OK);
+        return new ResponseEntity<String>("{\"status\":\"" + this.functionService.getStatus(id) + "\"}", HttpStatus.OK);
     }
 }

@@ -20,11 +20,10 @@ public class FunctionService {
     @Autowired
     ResourceLoader resourceLoader;
     
-    public LambdaFunction create(LambdaFunction lambdaFunction) {
-
-        CreateBucketS3 task = new CreateBucketS3(lambdaFunction, this.deployStatusService);
-        taskService.addTask(task);
-        taskService.run();
+    public Integer create(LambdaFunction lambdaFunction) {
+        Integer id = this.deployStatusService.getLastId();
+        CreateBucketS3 task = new CreateBucketS3(lambdaFunction, this.deployStatusService, id);
+        task.run();
         /*if(lambdaFunction.getRegion() != null){
             if(Region.regions().toString().contains(lambdaFunction.getRegion())){
                 this.lambda = new Lambda(this.getRegion(lambdaFunction.getRegion()), lambdaFunction);
@@ -33,7 +32,8 @@ public class FunctionService {
                 throw new Exception("Invalid region");
             }
         }*/
-        return lambdaFunction;
+
+        return id;
     }
 
     protected Region getRegion(String region){
