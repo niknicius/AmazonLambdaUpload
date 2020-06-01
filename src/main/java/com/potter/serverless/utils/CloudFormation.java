@@ -8,6 +8,8 @@ import software.amazon.awssdk.services.cloudformation.CloudFormationAsyncClient;
 import software.amazon.awssdk.services.cloudformation.model.*;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class CloudFormation {
 
@@ -24,20 +26,66 @@ public class CloudFormation {
     }
 
 
-    public CompletableFuture<CreateStackResponse> createStack(String stackName, String json) throws InterruptedException {
-        logger.info("Stack creation started");
-        return this.cloudFormationClient.createStack(CreateStackRequest.builder()
+    public CompletableFuture<String> createStack(String stackName, String json) throws InterruptedException {
+        CompletableFuture<String> result = new CompletableFuture<>();
+        this.cloudFormationClient.createStack(CreateStackRequest.builder()
                 .stackName(stackName)
                 .templateBody(json)
-                .build());
+                .build()).whenComplete((createStackResponse, throwable) -> {
+                    if(throwable != null){
+                        result.completeExceptionally(throwable);
+                    }else{
+                        try {
+                            result.complete(waitBucketDeploy());
+                        } catch (Exception e) {
+                            result.completeExceptionally(e);
+                        }
+                    }
+        });
+
+        return result;
     }
 
-    private boolean checkStackCreationFinished(DescribeStackEventsResponse response){
+    private String waitBucketDeploy() throws Exception {
+        AtomicReference<String> bucketPhysicalId = new AtomicReference<>();
+        AtomicBoolean error = new AtomicBoolean(false);
+        AtomicBoolean success = new AtomicBoolean(false);
+        while(!error.get() && !success.get()){
+            this.getStackEvents().whenComplete((describeStackEventsResponse, throwable) -> {
+                try {
+                    if(this.checkStackCreationFinished(describeStackEventsResponse)){
+                        success.set(true);
+                        bucketPhysicalId.set(getBucketName(describeStackEventsResponse));
+                    }
+                } catch (Exception e) {
+                   error.set(true);
+                }
+            });
+            Thread.sleep(10000);
+        }
+        if(error.get()){
+            throw new Exception("Stack creation failed");
+        }
+
+        return bucketPhysicalId.get();
+    }
+
+    private String getBucketName(DescribeStackEventsResponse describeStackEventsResponse){
+        for(StackEvent stackEvent: describeStackEventsResponse.stackEvents()){
+            if(stackEvent.logicalResourceId().equalsIgnoreCase(StrUtils.snakeToPascal(this.lambdaFunction.getName()).concat("DeploymentBucket"))){
+              return stackEvent.physicalResourceId();
+            }
+        }
+        return null;
+    }
+
+    private boolean checkStackCreationFinished(DescribeStackEventsResponse response) throws Exception {
        boolean finished = false;
         for(StackEvent stackEvent: response.stackEvents()){
             if(stackEvent.logicalResourceId().equalsIgnoreCase(StrUtils.snakeToPascal(this.lambdaFunction.getName())) && stackEvent.resourceStatus().equals(ResourceStatus.CREATE_COMPLETE)){
-                logger.info("Stack creation finished");
                 finished = true;
+            }else if(stackEvent.logicalResourceId().equalsIgnoreCase(StrUtils.snakeToPascal(this.lambdaFunction.getName())) && stackEvent.resourceStatus().equals(ResourceStatus.CREATE_FAILED)){
+                throw new Exception("Stack creation failed");
             }
         }
         return finished;

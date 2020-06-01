@@ -8,18 +8,16 @@ import com.potter.serverless.utils.StrUtils;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Async;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.cloudformation.model.CreateStackResponse;
 import software.amazon.awssdk.services.cloudformation.model.ResourceStatus;
 import software.amazon.awssdk.services.cloudformation.model.StackEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public class CreateBucketS3 {
 
@@ -28,6 +26,7 @@ public class CreateBucketS3 {
     private final LambdaFunction lambdaFunction;
     private final DeployStatusService deployStatusService;
     private final Integer id;
+    private final ZipAndUpload zipAndUpload;
 
     public CreateBucketS3(LambdaFunction lambdaFunction, DeployStatusService deployStatusService, Integer id) {
         this.lambdaFunction = lambdaFunction;
@@ -35,43 +34,28 @@ public class CreateBucketS3 {
         this.s3 = new S3(Region.of(lambdaFunction.getRegion()));
         this.deployStatusService = deployStatusService;
         this.id = id;
+        this.zipAndUpload = new ZipAndUpload(lambdaFunction);
     }
 
     @Async
     public CompletableFuture<String> run(){
         CompletableFuture<String> result = new CompletableFuture<>();
+        Map<String, String> keysToReplace = this.populateKeysMap();
         try {
             this.deployStatusService.putStatus(this.id, "Bucket creation request started");
-            String json = new String(Files.readAllBytes(new ClassPathResource("create.json").getFile().toPath()));
-            json = json.replace("{{function_name}}", StrUtils.snakeToPascal(lambdaFunction.getName()));
-            CompletableFuture<CreateStackResponse> response = cloudFormation.createStack(StrUtils.snakeToPascal(lambdaFunction.getName()), json);
-            response.whenComplete((createStackResponse, throwable) -> {
-                if (throwable != null) {
-                    this.deployStatusService.putStatus(this.id, throwable.getMessage());
-                } else {
-                    this.deployStatusService.putStatus(this.id, "Bucket creation request made");
-
-                    this.zipAndUploadFunction().whenComplete((uploadResult, throwable1) -> {
-                        if(throwable1 != null){
-                            this.deployStatusService.putStatus(this.id, throwable1.getMessage());
+            String jsonCreate = StrUtils.replaceJsonKey(new String(Files.readAllBytes(new ClassPathResource("create.json")
+                    .getFile().toPath())), keysToReplace);
+            cloudFormation.createStack(StrUtils.snakeToPascal(lambdaFunction.getName()), jsonCreate)
+                    .whenComplete(((bucketPhysicalId, throwable) -> {
+                        if(throwable != null){
+                            this.deployStatusService.putStatus(id, throwable.getMessage());
                         }else{
-                            System.out.println("Completou-se bro");
-                            try {
-                                this.updateStack().whenComplete((s, throwable2) -> {
-                                    if(throwable2 != null){
-                                        result.completeExceptionally(throwable2);
-                                    }else{
-                                        result.complete("FINISHED");
-                                    }
-                                });
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-
+                            this.deployStatusService.putStatus(id, "Bucket successfully created");
+                            this.zipAndUpload.run(bucketPhysicalId).whenComplete((s, throwable1) -> {
+                                this.deployStatusService.putStatus(id, s);
+                            });
                         }
-                    });
-                }
-            });
+                    }));
         }catch (Exception ex){
             this.deployStatusService.putStatus(this.id, ex.getMessage());
             this.rollback().whenComplete((Boolean, throwable) -> {
@@ -95,14 +79,13 @@ public class CreateBucketS3 {
                     if(throwable != null){
                         response.completeExceptionally(throwable);
                     }else{
-                        response.complete(true);
-                        System.out.println(deleteStackResponse.toString());
+
                     }
         });
         return response;
     }
 
-    @Async
+   /* @Async
     CompletableFuture<String> zipAndUploadFunction(){
         CompletableFuture<String> result = new CompletableFuture<>();
         try {
@@ -137,7 +120,7 @@ public class CreateBucketS3 {
         }
 
         return result;
-    }
+    }*/
 
     @Async
     CompletableFuture<String> uploadFunction(String bucketName, Path zipLocation){
@@ -175,7 +158,7 @@ public class CreateBucketS3 {
                     }
                 }
             });
-            Thread.sleep(15000);
+            Thread.sleep(10000);
         }
         return response;
     }
@@ -191,34 +174,6 @@ public class CreateBucketS3 {
             }
         });
         return response;
-    }
-
-    @Async
-    CompletableFuture<Path> zipFolder(String folderLocation){
-        CompletableFuture<Path> completableFuture = new CompletableFuture<>();
-        try {
-            Path destinyPath = Files.createTempDirectory("zips");
-            Path filePath = destinyPath.resolve(System.nanoTime() + ".zip");
-            try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(filePath))) {
-                Path pp = Paths.get(folderLocation);
-                Files.walk(pp)
-                        .filter(path -> !Files.isDirectory(path))
-                        .forEach(path -> {
-                            ZipEntry zipEntry = new ZipEntry(pp.relativize(path).toString());
-                            try {
-                                zs.putNextEntry(zipEntry);
-                                Files.copy(path, zs);
-                                zs.closeEntry();
-                            } catch (IOException e) {
-                                completableFuture.completeExceptionally(e);
-                            }
-                        });
-                completableFuture.complete(filePath);
-            }
-        }catch (Exception ex){
-            completableFuture.completeExceptionally(ex);
-        }
-        return completableFuture;
     }
 
     @Async
@@ -240,6 +195,16 @@ public class CreateBucketS3 {
                     }
                 });
         return response;
+    }
+
+    private Map<String, String> populateKeysMap(){
+        Map<String, String> map = new HashMap<>();
+        map.put("{{function_name}}", StrUtils.snakeToPascal(lambdaFunction.getName()));
+        map.put("{{function_name_snake}}", lambdaFunction.getName());
+        map.put("{{code_key}}", StrUtils.snakeToPascal(lambdaFunction.getName()).concat(".zip"));
+        map.put("{{function_handler}}", lambdaFunction.getHandler());
+        map.put("{{function_runtime}}", lambdaFunction.getRuntime());
+        return map;
     }
 
 }
