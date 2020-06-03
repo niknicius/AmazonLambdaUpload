@@ -43,7 +43,9 @@ public class ZipAndUpload {
         return response;
     }
 
-    public CompletableFuture<Path> zip(String folderLocation){
+    private void threatZipResponse(Path path, Throwable throwable){}
+
+    private CompletableFuture<Path> zip(String folderLocation){
         CompletableFuture<Path> completableFuture = new CompletableFuture<>();
         try {
             Path destinyPath = Files.createTempDirectory("zips");
@@ -70,7 +72,7 @@ public class ZipAndUpload {
         return completableFuture;
     }
 
-    public CompletableFuture<String> uploadFile(String bucketName, Path path){
+    private CompletableFuture<String> uploadFile(String bucketName, Path path){
         CompletableFuture<String> response = new CompletableFuture<>();
         this.s3.uploadObjectToAExistentBucket(bucketName, path,
                 StrUtils.snakeToPascal(this.lambdaFunction.getName()).concat(".zip"))
